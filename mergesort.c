@@ -11,6 +11,7 @@
 #include<stdio.h>
 #include<string.h>
 #include <sys/time.h>
+#include"mergesortparallel.h"
 
 
 /* Function declarations */
@@ -33,11 +34,10 @@ int main(int argc, char* argv[]){
        exit(0);
    }
    
-    long size;
-    int threads;
+   // Parse command line args
     size = strtol(argv[1], NULL, 10);
-    threads = (int) strtol(argv[2], NULL, 10);
-    printf("size %ld threads %d\n", size, threads);
+    thread_count = (int) strtol(argv[2], NULL, 10);
+    printf("size %ld threads %d\n", size, thread_count);
 
     // For timing
     struct timeval  tv1, tv2;
