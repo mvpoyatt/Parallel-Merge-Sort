@@ -1,46 +1,76 @@
+/*
+ * File: mergesort.c
+ * Author: Katie Levy and Michael Poyatt
+ * Date: 10/10/16
+ * Description: Mergesort algorithm timing both serial and 
+ * parallel execution
+ */
+
+
 #include<stdlib.h>
 #include<stdio.h>
 #include<string.h>
+#include <sys/time.h>
 
 
-// Global Vars
-int *arr1;
-int *arr2;
-int *temp;
-
-// Functions
+/* Function declarations */
 int serialsort(int size);
 int mergeSort(int start, int stop);
 int merge(int start, int middle, int stop);
 int validateSerialSort();
 void printArray(int arr[], int size);
 
+/* Global variables */
+int *arr1;
+int *arr2;
+int *temp;
 
+/*--------------------------------------------------------------------*/
 int main(int argc, char* argv[]){
+   // Check for 2 command line args
+   if(argc != 3){
+       printf("You need to enter 2 command line arguments to run this program");
+       exit(0);
+   }
+   
     long size;
     int threads;
     size = strtol(argv[1], NULL, 10);
     threads = (int) strtol(argv[2], NULL, 10);
     printf("size %ld threads %d\n", size, threads);
-    // Allocate memory for arrays
+
+    // For timing
+    struct timeval  tv1, tv2;
+
+    // Allocate memory for global arrays
     arr1 = (int *) malloc(sizeof(int) * size);
     arr2 = (int *) malloc(sizeof(int) * size);   
     temp = (int *) malloc(sizeof(int) * size);   
     int i; 
-    // Fill the arrays with the same random numbers
 
+    // Fill the arrays with the same random numbers
     srand(time(NULL));
     for(i = 0; i < size; i++){
         int random = rand() % 100;
         arr1[i] = random;
     }
+
     // Copy first array to second array
     memcpy(arr2, arr1, sizeof(int)*size);
     memcpy(temp, arr1, sizeof(int)*size);
+
+    //Perform the mergesort
     printf("Original Array: \n");
     printArray(arr1, size);
     printf("Serial Sorted Array\n");    
+    gettimeofday(&tv1, NULL); // start timing
     serialsort(size);
+    gettimeofday(&tv2, NULL); // stop timing
+    double serialTime = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
+        (double) (tv2.tv_sec - tv1.tv_sec);
+    
+     // Print results.
+    printf("Serial time = %e\n", serialTime);
     free(arr1);
     free(arr2);
     free(temp);
