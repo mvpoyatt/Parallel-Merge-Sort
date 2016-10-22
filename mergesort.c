@@ -8,23 +8,20 @@
 
 
 
-#include<stdlib.h>
-#include<stdio.h>
-#include<string.h>
-#include <sys/time.h>
 #include"mergesortparallel.h"
-
 
 /* Function declarations */
 int serialsort(int size);
 int mergeSort(int start, int stop);
 int merge(int start, int middle, int stop);
-int validateSerialSort();
+int validateSerial();
 void printArray(int arr[], int size);
 
 /* Global variables */
-int *arr1;
-int *arr2;
+int threadCount;
+long n; //array size
+int *vecSerial;
+int *vecParallel;
 int *temp;
 
 /*--------------------------------------------------------------------*/
@@ -35,45 +32,44 @@ int main(int argc, char* argv[]){
        exit(0);
    }
    
-   // Parse command line args
-    size = strtol(argv[1], NULL, 10);
-    thread_count = (int) strtol(argv[2], NULL, 10);
-    printf("size %ld threads %d\n", size, thread_count);
+    // Parse command line args
+    threadCount = (int) strtol(argv[1], NULL, 10);
+    n = strtol(argv[2], NULL, 10);
+    printf("size %ld threads %d\n", n, threadCount);
 
     // For timing
     struct timeval  tv1, tv2;
 
     // Allocate memory for global arrays
-    arr1 = (int *) malloc(sizeof(int) * size);
-    arr2 = (int *) malloc(sizeof(int) * size);   
-    temp = (int *) malloc(sizeof(int) * size);   
+    vecSerial = (int *) malloc(sizeof(int) * n);
+    vecParallel = (int *) malloc(sizeof(int) * n);   
+    temp = (int *) malloc(sizeof(int) * n);   
     int i; 
 
     // Fill the arrays with the same random numbers
     srand(time(NULL));
-    for(i = 0; i < size; i++){
+    for(i = 0; i < n; i++){
         int random = rand() % 100;
-        arr1[i] = random;
+        vecSerial[i] = random;
     }
 
     // Copy first array to second array
-    memcpy(arr2, arr1, sizeof(int)*size);
-    memcpy(temp, arr1, sizeof(int)*size);
+    memcpy(vecParallel, vecSerial, sizeof(int)*n);
+    memcpy(temp, vecSerial, sizeof(int)*n);
 
     //Perform the mergesort
-    printf("Original Array: \n");
-    printArray(arr1, size);
-    printf("Serial Sorted Array\n");    
     gettimeofday(&tv1, NULL); // start timing
-    serialsort(size);
+    serialsort(n);
     gettimeofday(&tv2, NULL); // stop timing
     double serialTime = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
         (double) (tv2.tv_sec - tv1.tv_sec);
     
-     // Print results.
+    // Print results.
     printf("Serial time = %e\n", serialTime);
-    free(arr1);
-    free(arr2);
+    validateSerial();
+    mergeSortParallel();
+    free(vecSerial);
+    free(vecParallel);
     free(temp);
     return 0;
 }
@@ -81,15 +77,13 @@ int main(int argc, char* argv[]){
 // Returns 0 on success and 1 on failure
 int serialsort(int size){
     if(!(mergeSort(0, size -1))){
-        printArray(temp, size);
+        return 0;
     }else{
         return 1;
     }
-    return 0;
 }
 
 int mergeSort(int start, int stop){
-//    printf("MergeSort start %d stop %d \n", start, stop);
     if(start >= stop){
         return 0;
     }
@@ -101,41 +95,45 @@ int mergeSort(int start, int stop){
 }
 
 int merge(int start, int middle, int stop){
-//    printf("merge start %d middle %d stop %d \n", start, middle, stop);
     int first = start;
     int second = middle+1;
     int tempIndex = start;
     while(first <= middle && second <= stop){
-//        printf("comparing %d and %d\n", arr1[first], arr1[second]);
-        if(arr1[first] < arr1[second]){
-            temp[tempIndex] = arr1[first];
+        if(vecSerial[first] < vecSerial[second]){
+            temp[tempIndex] = vecSerial[first];
             first++;
             tempIndex++;
         } else {
-            temp[tempIndex] = arr1[second];
+            temp[tempIndex] = vecSerial[second];
             second++;
             tempIndex++;
         }
-//        printf("%d\n", temp[tempIndex-1]);
     }
     while(first <= middle){
-        temp[tempIndex] = arr1[first];
+        temp[tempIndex] = vecSerial[first];
             first++;
             tempIndex++;
     }
     while(second <= stop){
-        temp[tempIndex] = arr1[second];
+        temp[tempIndex] = vecSerial[second];
             second++;
             tempIndex++;
     }
-    for(int i = start; i <= stop; i++){
-        arr1[i] = temp[i];
+    int i;
+    for(i = start; i <= stop; i++){
+        vecSerial[i] = temp[i];
     }
     return 0;
 }
 
-
-int validateSerialSort(){
+int validateSerial(){
+    int i;
+    for(i = 0; i < n-1; i++){
+        if(vecSerial[i] > vecSerial[i+1]){
+            printf("Serial sort unsuccesful.\n");
+            return 1;
+        }
+    }
     return 0;
 }
 
