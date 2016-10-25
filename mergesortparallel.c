@@ -9,7 +9,10 @@
 #include"mergesortparallel.h"
 
 /* Function Declarations */
-int threadFunc(void* rank);
+void* threadFunc(void* rank);
+int driverParallel(int start, int stop);
+int mergeParallel(int start, int middle, int stop);
+void printParallel(int start, int stop);
 int validateParallel();
 
 /* Global variables */
@@ -25,7 +28,8 @@ int mergeSortParallel() {
     threads = malloc(threadCount*sizeof(pthread_t));
     int i;
     for(i = 0; i < threadCount; i++){
-        pthread_create(&threads[i], NULL, threadFunc, (void *)i);
+        long rank = (long)i;
+        pthread_create(&threads[i], NULL, threadFunc, (void*)rank);
     }
     for(i = 0; i < threadCount; i++){
         pthread_join(threads[i], NULL);
@@ -33,7 +37,7 @@ int mergeSortParallel() {
     return 0;
 }
 
-int threadFunc(void* rank){
+void* threadFunc(void* rank){
      // Get rank of this thread.
     long myRank = (long) rank;  /* Use long in case of 64-bit system */
     
@@ -52,7 +56,8 @@ int threadFunc(void* rank){
     }
     myLasti = myFirsti + myCount;
 
-    printf("Hello from thread %ld\n", myRank);
+    printf("Range: %ld -- %ld\n", myFirsti, myLasti);
+    driverParallel(myFirsti, myLasti-1);
     
     // Serial mergesort portion and store in global partial sort array
     // TODO: change serial mergesort to noncontiguous subarrays 
@@ -72,4 +77,56 @@ int validateParallel(){
         }
     }
     return 0;
+}
+
+int driverParallel(int start, int stop){
+    if(start >= stop){
+        return 0;
+    }
+    int middle = ((stop + start) / 2);
+    driverParallel(start, middle);
+    driverParallel(middle+1, stop);
+    mergeParallel(start, middle, stop);
+    return 0;
+}
+
+int mergeParallel(int start, int middle, int stop){
+    int first = start;
+    int second = middle+1;
+    int tempIndex = start;
+    while(first <= middle && second <= stop){
+        if(vecParallel[first] < vecParallel[second]){
+            temp[tempIndex] = vecParallel[first];
+            first++;
+            tempIndex++;
+        } else {
+            temp[tempIndex] = vecParallel[second];
+            second++;
+            tempIndex++;
+        }
+    }
+    while(first <= middle){
+        temp[tempIndex] = vecParallel[first];
+            first++;
+            tempIndex++;
+    }
+    while(second <= stop){
+        temp[tempIndex] = vecParallel[second];
+            second++;
+            tempIndex++;
+    }
+    int i;
+    for(i = start; i <= stop; i++){
+        vecParallel[i] = temp[i];
+    }
+    return 0;
+}
+
+void printParallel(int start, int stop){  
+    int i;
+    for(i = start; i < stop; i++){
+        printf("%d\t", vecParallel[i]);
+    }
+    printf("\n");
+    return;
 }
