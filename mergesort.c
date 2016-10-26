@@ -1,7 +1,7 @@
 /*
  * File: mergesort.c
  * Author: Katie Levy and Michael Poyatt
- * Date: 10/10/16
+ * Date: 10/25/16
  * Description: Mergesort algorithm timing both serial and 
  * parallel execution
  */
@@ -16,6 +16,7 @@ int mergeSort(int start, int stop);
 int merge(int start, int middle, int stop);
 int validateSerial();
 void printArray(int arr[], int size);
+int validateParallel();
 
 /* Global variables */
 int threadCount;
@@ -23,6 +24,9 @@ long n; //array size
 int *vecSerial;
 int *vecParallel;
 int *temp;
+int threads_ready;
+pthread_cond_t ready_cv;
+pthread_mutex_t lock;
 
 /*--------------------------------------------------------------------*/
 int main(int argc, char* argv[]){
@@ -35,7 +39,6 @@ int main(int argc, char* argv[]){
     // Parse command line args
     threadCount = (int) strtol(argv[1], NULL, 10);
     n = strtol(argv[2], NULL, 10);
-    printf("size %ld threads %d\n", n, threadCount);
 
     // For timing
     struct timeval  tv1, tv2;
@@ -43,7 +46,10 @@ int main(int argc, char* argv[]){
     // Allocate memory for global arrays
     vecSerial = (int *) malloc(sizeof(int) * n);
     vecParallel = (int *) malloc(sizeof(int) * n);   
-    temp = (int *) malloc(sizeof(int) * n);   
+    temp = (int *) malloc(sizeof(int) * n); 
+    pthread_mutex_init(&lock, NULL);
+    pthread_cond_init(&ready_cv, NULL);
+    threads_ready = 0;  
     int i; 
 
     // Fill the arrays with the same random numbers
@@ -57,7 +63,7 @@ int main(int argc, char* argv[]){
     memcpy(vecParallel, vecSerial, sizeof(int)*n);
     memcpy(temp, vecSerial, sizeof(int)*n);
 
-    //Perform the mergesort
+    // Perform the serial mergesort
     gettimeofday(&tv1, NULL); // start timing
     serialsort(n);
     gettimeofday(&tv2, NULL); // stop timing
@@ -67,12 +73,25 @@ int main(int argc, char* argv[]){
     printf("Serial time = %e\n", serialTime);
     validateSerial();
 
+    // Perform the parallel mergesort
     gettimeofday(&tv1, NULL); // start timing
     mergeSortParallel();
     gettimeofday(&tv2, NULL); // stop timing
     double parallelTime = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
         (double) (tv2.tv_sec - tv1.tv_sec);
     printf("Parallel time = %e\n", parallelTime);
+    printArray(vecParallel, n);
+    validateParallel();
+
+    // Print results
+    double speedup = serialTime / parallelTime;
+    double efficiency = speedup / threadCount;
+    printf("Number of threads: %d\n", threadCount);
+    printf("Array Size: %ld\n", n);
+    printf("Time to sort with serial merge sort: %e\n", serialTime);
+    printf("Time to sort with parallel merge sort: %e\n", parallelTime);
+    printf("Speedup: %e\n", speedup);
+    printf("Efficincy: %e\n", efficiency);
 
     free(vecSerial);
     free(vecParallel);
@@ -89,6 +108,7 @@ int serialsort(int size){
     }
 }
 
+// Serial mergesort
 int mergeSort(int start, int stop){
     if(start >= stop){
         return 0;
@@ -100,6 +120,7 @@ int mergeSort(int start, int stop){
     return 0;
 }
 
+// Merge portion of mergesort
 int merge(int start, int middle, int stop){
     int first = start;
     int second = middle+1;
@@ -132,6 +153,7 @@ int merge(int start, int middle, int stop){
     return 0;
 }
 
+// Verify that the serial mergesort is correct
 int validateSerial(){
     int i;
     for(i = 0; i < n-1; i++){
@@ -143,6 +165,7 @@ int validateSerial(){
     return 0;
 }
 
+// Print array passed in as argument
 void printArray(int arr[], int size){  
     int i;
     for(i = 0; i < size; i++){
