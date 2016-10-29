@@ -25,8 +25,8 @@ int *vecSerial;
 int *vecParallel;
 int *temp;
 int threads_ready;
-pthread_cond_t ready_cv;
-pthread_mutex_t lock;
+pthread_cond_t ready_cv = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t lock = PTHREAD_COND_INITIALIZER;
 
 /*--------------------------------------------------------------------*/
 int main(int argc, char* argv[]){
@@ -47,8 +47,6 @@ int main(int argc, char* argv[]){
     vecSerial = (int *) malloc(sizeof(int) * n);
     vecParallel = (int *) malloc(sizeof(int) * n);   
     temp = (int *) malloc(sizeof(int) * n); 
-    pthread_mutex_init(&lock, NULL);
-    pthread_cond_init(&ready_cv, NULL);
     threads_ready = 0;  
     int i; 
 
@@ -80,18 +78,18 @@ int main(int argc, char* argv[]){
     double parallelTime = (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 +
         (double) (tv2.tv_sec - tv1.tv_sec);
     printf("Parallel time = %e\n", parallelTime);
-    printArray(vecParallel, n);
+    //printArray(vecParallel, n);
     validateParallel();
 
     // Print results
     double speedup = serialTime / parallelTime;
     double efficiency = speedup / threadCount;
-    printf("Number of threads: %d\n", threadCount);
+    /*printf("Number of threads: %d\n", threadCount);
     printf("Array Size: %ld\n", n);
     printf("Time to sort with serial merge sort: %e\n", serialTime);
     printf("Time to sort with parallel merge sort: %e\n", parallelTime);
     printf("Speedup: %e\n", speedup);
-    printf("Efficincy: %e\n", efficiency);
+    printf("Efficincy: %e\n", efficiency);*/
 
     free(vecSerial);
     free(vecParallel);

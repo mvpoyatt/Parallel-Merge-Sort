@@ -5,7 +5,6 @@
  * Description: Parallel mergesort algorithm
  */
 
-#include <pthread.h>
 #include <math.h>
 #include "mergesortparallel.h"
 
@@ -14,8 +13,11 @@
 void* threadFunc(void* rank);
 int driverParallel(int start, int stop);
 int mergeParallel(int start, int middle, int stop);
+int binSearch(int arr[], int a, int b, int x);
 void printParallel(int start, int stop);
 int validateParallel();
+int combine(long myRank);
+void barrier();
 
 /* Global variables */
 extern int threadCount;
@@ -24,6 +26,7 @@ extern int *vecSerial;
 extern int *vecParallel;
 extern int *temp;
 pthread_t *threads;
+int level;
 extern int threads_ready;
 extern pthread_cond_t ready_cv;
 extern pthread_mutex_t lock;
@@ -32,6 +35,7 @@ extern pthread_mutex_t lock;
 int mergeSortParallel() {
     // Allocate memory for threads
     threads = malloc(threadCount*sizeof(pthread_t));
+    level = 1;
     // Create threads
     int i;
     for(i = 0; i < threadCount; i++){
@@ -56,7 +60,7 @@ void* threadFunc(void* rank){
     long quotient = n / threadCount;
     long remainder = n % threadCount;
     long myCount;
-    long myFirsti, myLasti;
+    long myFirsti, myFirstj, mySecondi, mySecondj;
     if (myRank < remainder) {
         myCount = quotient + 1;
         myFirsti = myRank * myCount;
@@ -65,44 +69,82 @@ void* threadFunc(void* rank){
         myCount = quotient;
         myFirsti = myRank * myCount + remainder;
     }
-    myLasti = myFirsti + myCount;
+    myFirstj = myFirsti + myCount;
     
     // Mergesort that section of the array
-    driverParallel(myFirsti, myLasti-1);
+    driverParallel(myFirsti, myFirstj-1);
 
-    int divisor = 2;
-    int difference = 1;
-    int partner = 0;
+    int team_size, num_teams, chunk_size, block_size, team, offset, a, b;
+    //double offset;
+    barrier();
 
-    // Tree reduction to divide work amoung threads
-    while(difference < threadCount) {
-        // A barrier for all threads to be on the same level
-        pthread_mutex_lock(&lock);
-        threads_ready++;
-        if(threads_ready == threadCount / difference){
-            for(int i = 0; i < threads_ready; i++){
-                pthread_cond_signal(&ready_cv);
-            }
-            threads_ready = 0;
-        }else {
-            pthread_cond_wait(&ready_cv, &lock);
+    while(pow(2, level) <= threadCount) {
+        if(myRank == 0){
+            printf("LEVEL %d\n", level);
         }
-        pthread_mutex_unlock(&lock);
-        // Thread doing the work
-        if(myRank % divisor == 0){
-            partner = myRank + difference;
-            if(partner < threadCount){
-                myLasti = myFirsti + (pow(2, difference) * (n / threadCount));
-                driverParallel(myFirsti, myLasti-1);
-            }
-        // Thread not doing work
-        } else {
-            break;
+        barrier();
+
+        // Each thread computes its 4 indices
+        team_size = pow(2, level);
+        num_teams = threadCount / team_size;
+        chunk_size = n / (num_teams * 2);
+        block_size = chunk_size / team_size;
+        //printf("myRank=%ld, team_size=%d, divided=%ld\n", myRank, team_size, myRank/team_size);
+        team = myRank / team_size;
+        offset = team * chunk_size;
+        //printf("thread %ld, team %d\n", myRank, team);
+        //printf("thread %ld, offset %d\n", myRank, offset);
+        myFirsti = offset + (myRank * block_size);
+        myFirstj = myFirsti + block_size;
+        printf("Thread %ld first: %ld --> %ld\n", myRank, myFirsti, myFirstj);
+        // Odd levels copy from temp to arr, even arr to temp
+        a = chunk_size * 2 * team;
+        b = a + chunk_size;
+        if((level % 2) == 0){
+            mySecondi = binSearch(vecParallel, a, b, temp[myFirsti - 1]);
+            mySecondj = binSearch(vecParallel, a, b, temp[myFirstj + 1]);
         }
-        divisor *= 2;
-        difference *= 2;
+        else{
+            mySecondi = binSearch(temp, a, b, temp[myFirsti]);
+            mySecondj = binSearch(temp, a, b, temp[myFirstj + 1]);
+        }
+        printf("Thread %ld second: %ld --> %ld\n", myRank, mySecondi, mySecondj);
+
+        barrier();
+        if(myRank == 0){
+            level++;
+        }
+        barrier();
     }
+    barrier();
     return 0;
+}
+
+// Recursive binary search
+int binSearch(int arr[], int a, int b, int x){
+    if (b >= a){
+        int mid = a + (b - a)/2;
+        if (arr[mid] == x){
+            return mid;}
+        if(arr[mid] > x){
+            return binSearch(arr, a, mid-1, x);}
+        return binSearch(arr, mid+1, b, x);
+    }
+    return b;
+}
+
+// Barrier to make threads wait for each other
+void barrier(){
+    pthread_mutex_lock(&lock);
+    threads_ready++;
+    if(threads_ready == threadCount){
+        threads_ready = 0;
+        pthread_cond_broadcast(&ready_cv);
+    }
+    else{
+        while(pthread_cond_wait(&ready_cv, &lock) != 0);
+    }
+    pthread_mutex_unlock(&lock);
 }
 
 // Validates the sorting of the parallel algorithm
