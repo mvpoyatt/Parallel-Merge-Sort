@@ -89,25 +89,23 @@ void* threadFunc(void* rank){
         num_teams = threadCount / team_size;
         chunk_size = n / (num_teams * 2);
         block_size = chunk_size / team_size;
-        //printf("myRank=%ld, team_size=%d, divided=%ld\n", myRank, team_size, myRank/team_size);
         team = myRank / team_size;
         offset = team * chunk_size;
-        //printf("thread %ld, team %d\n", myRank, team);
-        //printf("thread %ld, offset %d\n", myRank, offset);
         myFirsti = offset + (myRank * block_size);
         myFirstj = myFirsti + block_size;
-        printf("Thread %ld first: %ld --> %ld\n", myRank, myFirsti, myFirstj);
+
         // Odd levels copy from temp to arr, even arr to temp
-        a = chunk_size * 2 * team;
+        a = (chunk_size * 2 * (team+1))- chunk_size;
         b = a + chunk_size;
         if((level % 2) == 0){
-            mySecondi = binSearch(vecParallel, a, b, temp[myFirsti - 1]);
-            mySecondj = binSearch(vecParallel, a, b, temp[myFirstj + 1]);
+            mySecondi = binSearch(vecParallel, a, b, vecParallel[myFirsti-1]);
+            mySecondj = binSearch(vecParallel, a, b, vecParallel[myFirstj]);
         }
         else{
-            mySecondi = binSearch(temp, a, b, temp[myFirsti]);
-            mySecondj = binSearch(temp, a, b, temp[myFirstj + 1]);
+            mySecondi = binSearch(temp, a, b, temp[myFirsti-1]);
+            mySecondj = binSearch(temp, a, b, temp[myFirstj]);
         }
+        printf("Thread %ld first: %ld --> %ld\n", myRank, myFirsti, myFirstj);
         printf("Thread %ld second: %ld --> %ld\n", myRank, mySecondi, mySecondj);
 
         barrier();
@@ -130,7 +128,7 @@ int binSearch(int arr[], int a, int b, int x){
             return binSearch(arr, a, mid-1, x);}
         return binSearch(arr, mid+1, b, x);
     }
-    return b;
+    return a;
 }
 
 // Barrier to make threads wait for each other
